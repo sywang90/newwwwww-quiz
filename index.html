@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>⚡🏆 MCE 大力神杯巅峰之战 - 加入战队，竞速抢答！ 🏆⚡</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0a2f1d;
+            --primary-color: #ff007f;
+            --secondary-color: #00f0ff;
+            --success-color: #39ff14;
+            --warning-color: #ffaa00;
+            --panel-bg: rgba(10, 35, 20, 0.75);
+            --gold-color: #FFD700; 
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: "Microsoft YaHei", "微软雅黑", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1b4d22;
+            background-image: 
+                radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.15) 0%, transparent 60%),
+                radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                repeating-linear-gradient(90deg, #143d1a 0px, #143d1a 60px, #1b4d22 60px, #1b4d22 120px);
+            background-attachment: fixed;
+            color: #fff; text-align: center; margin: 0; 
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            min-height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow-x: hidden;
+        }
+
+        .container { max-width: 950px; margin: 0 auto; width: 100%; position: relative; z-index: 2; }
+        
+        .header-wrap { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto; }
+        .top-event-title { font-family: "Microsoft YaHei", sans-serif; font-size: 2.8rem; font-weight: bold; color: var(--gold-color); letter-spacing: 2px; margin: 0; padding: 0 15px; line-height: 1.2; text-transform: uppercase; animation: gold-glow-flicker 2s infinite alternate; }
+        .cartoon-trophy { width: 70px; height: 70px; filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.8)); animation: trophy-bounce 1.5s infinite alternate ease-in-out; flex-shrink: 0; margin-bottom: 10px; }
+        h1 { font-size: 2.1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-top: 15px; margin-bottom: 5px; filter: drop-shadow(0 2px 12px rgba(255,0,127,0.4)); animation: neon-flicker 2s infinite alternate; }
+        
+        #resultView { font-size: 1.8rem; color: #fff; font-weight: bold; margin: 15px auto; padding: 15px 25px; background: rgba(0, 0, 0, 0.5); border-radius: 15px; border: 2px solid rgba(0, 240, 255, 0.4); min-height: 65px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); box-shadow: 0 6px 25px rgba(0, 0, 0, 0.5); position: relative; }
+        
+        #countdownOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 20, 10, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
+        #countdownNumber { font-size: 15rem; font-weight: 900; color: #ff003c; text-shadow: 0 0 40px rgba(255, 0, 60, 0.6), 0 0 80px rgba(255, 0, 60, 0.4); animation: popIn 0.5s ease-out infinite alternate; }
+        #countdownTips { font-size: 2rem; color: var(--gold-color); font-weight: bold; margin-bottom: 20px; letter-spacing: 4px; text-shadow: 0 0 12px rgba(255,215,0,0.4); }
+        
+        #burstOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        
+        .burst-winner { font-family: "Microsoft YaHei", sans-serif; font-size: 4rem; font-weight: 900; color: #39ff14; text-shadow: 0 0 25px rgba(57, 255, 20, 0.9), 0 0 50px rgba(57, 255, 20, 0.6); animation: winner-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.5) forwards, winner-shaking 0.05s infinite; animation-duration: 0.4s, 3s; animation-iteration-count: 1, 60; animation-fill-mode: forwards; position: relative; z-index: 1010; padding: 0 20px; }
+        .lucky-star { font-family: "Microsoft YaHei", sans-serif; font-size: 4rem; font-weight: 900; color: var(--gold-color); text-shadow: 0 0 25px rgba(255, 215, 0, 0.9), 0 0 50px rgba(255, 215, 0, 0.6); animation: winner-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.4) forwards, lucky-glow 0.3s infinite alternate; position: relative; z-index: 1010; padding: 0 20px; }
+        .smoke-cloud { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background: transparent; border-radius: 50%; pointer-events: none; box-shadow: 0 0 80px 40px rgba(255, 0, 127, 0.85), 0 0 120px 70px rgba(0, 240, 255, 0.75), -50px -40px 100px 50px rgba(57, 255, 20, 0.7), 50px 40px 100px 50px rgba(255, 215, 0, 0.7); animation: smoke-burst-disperse 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; z-index: 1005; }
+        
+        .glass-panel { background: var(--panel-bg); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 24px; padding: 35px 25px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); backdrop-filter: blur(20px); }
+        
+        .action-btn { background: linear-gradient(135deg, var(--primary-color) 0%, #b0005d 100%); color: white; border: none; padding: 16px 40px; font-size: 1.2rem; font-weight: bold; border-radius: 16px; cursor: pointer; transition: 0.2s; box-shadow: 0 6px 20px rgba(255, 0, 127, 0.4); width: 100%; max-width: 320px; }
+        #statusText { font-size: 1.1rem; font-weight: bold; padding: 12px; border-radius: 12px; margin: 15px auto; max-width: 340px; }
+        .status-lock { color: var(--warning-color); background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.3); }
+        .status-go { color: var(--success-color); background: rgba(57, 255, 20, 0.2); border: 1px solid rgba(57, 255, 20, 0.4); animation: breath 1s infinite alternate; }
+        
+        #rushButton { width: 240px; height: 240px; border-radius: 50%; font-size: 2.2rem; font-weight: 950; background: radial-gradient(circle at center, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.5) 100%), #1a3d24; color: #668877; box-shadow: 0 12px 0 #0d2616, inset 0 6px 15px rgba(255,255,255,0.1), 0 15px 25px rgba(0,0,0,0.6); margin: 30px auto; display: flex; align-items: center; justify-content: center; border: 8px solid #255433; transition: all 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: not-allowed; position: relative; }
+        #rushButton.active { background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.4) 100%), #ff2a6d; color: white; box-shadow: 0 12px 0 #5a001e, 0 0 50px rgba(255, 42, 109, 0.8); border: 8px solid #ff6596; cursor: pointer; animation: pulse 0.6s infinite alternate, shake 0.08s infinite; }
+        
+        .dashboard { display: flex; justify-content: space-around; align-items: flex-start; margin-top: 15px; flex-wrap: wrap; gap: 25px; text-align: left; }
+        .panel { background: rgba(0, 0, 0, 0.55); padding: 30px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.15); flex: 1; min-width: 320px; box-shadow: 0 12px 35px rgba(0,0,0,0.6); backdrop-filter: blur(15px); }
+        #qrcode { background: white; padding: 12px; display: inline-block; border-radius: 12px; margin-top: 10px; }
+        .user-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; max-height: 350px; overflow-y: auto; }
+        .user-badge { background: rgba(255, 255, 255, 0.08); padding: 10px 18px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.3); font-size: 1.05rem; font-weight: bold; }
+        .admin-action-btn { background: linear-gradient(135deg, #00FF66 0%, #009933 100%); width: auto; max-width: none; border: none; font-size: 1.2rem; color: #001122; margin-bottom: 15px; }
+        
+        @keyframes gold-glow-flicker { 0%, 100% { text-shadow: 0 0 12px rgba(255, 215, 0, 0.7); } 50% { text-shadow: 0 0 24px rgba(255, 215, 0, 0.9); } }
+        @keyframes trophy-bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+        @keyframes pulse { 0% { box-shadow: 0 12px 0 #5a001e, 0 0 20px rgba(255,42,109,0.5); } 100% { box-shadow: 0 12px 0 #5a001e, 0 0 50px rgba(255,42,109,0.8); } }
+        @keyframes winner-pop { 0% { transform: scale(0.1); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes winner-shaking { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-4px, 4px) rotate(-1deg); } 60% { transform: translate(4px, -3px) rotate(1deg); } }
+        @keyframes lucky-glow { 0% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6)); } 100% { filter: drop-shadow(0 0 25px rgba(255, 215, 0, 1)); } }
+        @keyframes smoke-burst-disperse { 0% { box-shadow: 0 0 10px 10px rgba(255,0,127,0.9), 0 0 10px 10px rgba(0,240,255,0.9); opacity: 1; } 100% { box-shadow: 0 0 18px 150px rgba(255,0,127,0), 0 0 250px 180px rgba(0,240,255,0); transform: translate(-50%, -50%) scale(5); opacity: 0; } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="countdownOverlay" class="hidden">
+        <div id="countdownTips">🏆 大力神杯抢答 - 预备 🏆</div>
+        <div id="countdownNumber">3</div>
+    </div>
+
+    <div id="burstOverlay" class="hidden"></div>
+
+    <div class="container">
+        <div class="header-wrap">
+            <svg class="cartoon-trophy" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 16C12 10 18 8 18 8V24C18 24 12 22 12 16Z" fill="#FFB300" stroke="#FFD700" stroke-width="2"/>
+                <path d="M52 16C52 10 46 8 46 8V24C46 24 52 22 52 16Z" fill="#FFB300" stroke="#FFD700" stroke-width="2"/>
+                <path d="M16 8C16 8 18 36 32 36C46 36 48 8 48 8H16Z" fill="#FFD700"/>
+                <path d="M26 36H38V48H26V36Z" fill="#FFB300"/>
+                <path d="M20 48H44V56H20V48Z" fill="#8B5A2B"/>
+                <circle cx="32" cy="20" r="6" fill="#FFF" opacity="0.3"/>
+            </svg>
+            <div class="top-event-title" id="topHeaderTitle">MCE 大力神杯</div>
+        </div>
+        <h1 id="mainTitle">⚡ SPEED RUSH ⚡</h1>
+        <div id="resultView">🏆 加入战队，竞速抢答！ </div>
+        
+        <div id="loginView" class="hidden glass-panel">
+            <h2 style="color: var(--secondary-color); font-size: 1.6rem; margin-top: 0; margin-bottom: 10px;">请选择您的等候区</h2>
+            <div id="teamsActiveAlert" style="color: var(--warning-color); font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;"></div>
+            <div id="waitingZoneContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 10px;">
+                <!-- Cards will be populated dynamically -->
+            </div>
+        </div>
+
+        <div id="playerView" class="hidden">
+            <p style="font-size: 1.1rem; color: #aaa; margin: 5px 0;">当前身份：<span id="myTitle" style="color:var(--secondary-color); font-weight: 900;"></span></p>
+            <div id="statusText" class="status-lock">🔒 请听主持人宣读题目...</div>
+            <button id="rushButton" disabled onclick="pressButton()">READY</button>
+        </div>
+
+        <div id="adminView" class="dashboard hidden">
+            <div class="panel" style="display: flex; flex-direction: column; justify-content: center;">
+                <h3 style="color: var(--gold-color); margin-top: 0; font-size: 1.2rem;">⚙️ MCE 赛事中央控制台</h3>
+                <button id="adminStartBtn" class="action-btn admin-action-btn" onclick="startQuiz()">🔥 启动极速抢答（3秒倒计）</button>
+                <button class="action-btn admin-action-btn" onclick="luckyDraw()">🎯 随机点将回答啦！ </button>
+            </div>
+            <div class="panel" style="display: flex; flex-direction: column; justify-content: center;">
+                <h3 style="color: var(--gold-color); margin-top: 0; font-size: 1.2rem;">📍 大区生效控制</h3>
+                <div id="activeTeamsControl" style="text-align: left; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 15px;">
+                    <!-- Checkboxes will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <div id="screenView" class="dashboard hidden" style="width:100%;">
+            <div class="panel" style="width: 100%; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 15px 25px;">
+                <h3 style="color: var(--gold-color); margin: 0; font-size: 1.2rem;">📍 各大区等候区统计</h3>
+                <div id="screenTeamCounts" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 100%;"></div>
+            </div>
+            <div class="panel" style="text-align: center; flex: 1.2; min-width: 300px;">
+                <h3 style="color: var(--secondary-color); margin-top: 0; font-size: 1.3rem;">📢 微信扫码·锁定战队集结</h3>
+                <div id="qrcode"></div>
+                <p style="color: #668877; font-size: 1rem; margin-top: 15px; font-weight: bold; animation: breath 1.5s infinite alternate;">🔥 建议断开现场Wi-Fi，使用5G流量参与对决！</p>
+            </div>
+            <div class="panel" style="flex: 1.8; min-width: 350px;">
+                <h3 style="color: var(--gold-color); margin-top: 0; font-size: 1.3rem;">🔬 已就位选手名单 (<span id="userCount" style="color:var(--primary-color); font-weight: bold;">0</span> 人)：</h3>
+                <div class="user-list" id="userList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const TEAMS = ["中区", "东区", "西南区", "北二区", "南区", "北一区", "西北区"];
+        window.activeTeams = [];
+        window.teamCounts = {};
+        let myTeam = "";
+        let myName = "";
+        let currentRole = "player"; 
+        let countdownTimer = null;
+        window.quizStarted = false;
+        window.hasWinner = false;
+        window.isLocking = false;
+        window.countdownRunning = false;
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const role = urlParams.get('role');
+            if (role === 'admin') {
+                currentRole = "admin";
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('mainTitle').innerText = "SPEED RUSH";
+                document.getElementById('topHeaderTitle').innerText = "💻 MCE COMMAND PANEL";
+                if(document.querySelector('.cartoon-trophy')) document.querySelector('.cartoon-trophy').style.display = 'none';
+                document.getElementById('loginView').classList.add('hidden');
+                renderAdminControls();
+            } else if (role === 'screen') {
+                currentRole = "screen";
+                document.getElementById('screenView').classList.remove('hidden');
+                document.getElementById('mainTitle').innerText = "🏆 MCE大力神杯战队集结";
+                document.getElementById('loginView').classList.add('hidden');
+                let staffUrl = window.location.origin + window.location.pathname;
+                document.getElementById("qrcode").innerHTML = ""; 
+                new QRCode(document.getElementById("qrcode"), {
+                    text: staffUrl, width: 220, height: 220, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
+                });
+            } else {
+                currentRole = "player";
+                document.getElementById('loginView').classList.remove('hidden');
+                if(document.getElementById('adminView')) document.getElementById('adminView').remove();
+                if(document.getElementById('screenView')) document.getElementById('screenView').remove();
+                renderWaitingZone();
+            }
+        };
+
+        function renderAdminControls() {
+            const container = document.getElementById('activeTeamsControl');
+            if (!container) return;
+            container.innerHTML = TEAMS.map(team => `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 1.1rem; cursor: pointer;">
+                    <input type="checkbox" name="activeTeamCheckbox" value="${team}" onchange="syncActiveTeamsToServer()" style="width: 20px; height: 20px; margin: 0; cursor: pointer;">
+                    <span>${team}</span>
+                </label>
+            `).join('');
+        }
+
+        function syncActiveTeamsToServer() {
+            const checkboxes = document.querySelectorAll('input[name="activeTeamCheckbox"]');
+            const selected = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) selected.push(cb.value);
+            });
+            socket.emit('updateActiveTeams', selected);
+        }
+
+        function renderWaitingZone() {
+            const container = document.getElementById('waitingZoneContainer');
+            if (!container) return;
+            
+            const alertEl = document.getElementById('teamsActiveAlert');
+            const hasActive = window.activeTeams && window.activeTeams.length > 0;
+            if (alertEl) {
+                if (!hasActive) {
+                    alertEl.innerText = "⚠️ 暂无生效大区，请等待主持人开启";
+                    alertEl.style.color = "var(--warning-color)";
+                } else {
+                    alertEl.innerText = "⚡ 当前开放大区可点击加入 ⚡";
+                    alertEl.style.color = "var(--success-color)";
+                }
+            }
+
+            container.innerHTML = TEAMS.map(team => {
+                const count = (window.teamCounts && window.teamCounts[team]) || 0;
+                const isActive = window.activeTeams && window.activeTeams.includes(team);
+                
+                let cardStyle = `
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 2px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 16px;
+                    padding: 15px;
+                    cursor: not-allowed;
+                    opacity: 0.5;
+                    transition: all 0.2s;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                
+                if (isActive) {
+                    cardStyle = `
+                        background: rgba(0, 240, 255, 0.1);
+                        border: 2px solid var(--secondary-color);
+                        border-radius: 16px;
+                        padding: 15px;
+                        cursor: pointer;
+                        opacity: 1;
+                        transition: all 0.2s;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+                }
+
+                const statusLabel = isActive ? `<span style="color: var(--success-color); font-weight: bold; margin-top: 8px;">🟢 可加入</span>` : `<span style="color: #888; margin-top: 8px;">🔴 未开放</span>`;
+                const onClickAttr = isActive ? `onclick="selectTeam('${team}')"` : '';
+
+                return `
+                    <div ${onClickAttr} style="${cardStyle}" onmouseover="if(${isActive}){this.style.transform='translateY(-3px)'; this.style.boxShadow='0 5px 15px rgba(0,240,255,0.3)';}" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                        <strong style="font-size: 1.3rem; color: #fff;">${team}</strong>
+                        <span style="font-size: 1.1rem; color: #ccc; margin-top: 5px;">(${count} 人)</span>
+                        ${statusLabel}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectTeam(team) {
+            socket.emit('register', team);
+        }
+
+        function pressButton() { 
+            socket.emit('pressButton'); 
+        }
+
+        socket.on('registered', (name) => {
+            if (currentRole === 'player') {
+                document.getElementById('loginView').classList.add('hidden');
+                document.getElementById('playerView').classList.remove('hidden');
+                document.getElementById('myTitle').innerText = name;
+                
+                const match = name.match(/【(区块|中区|东区|西南区|北二区|南区|北一区|西北区)】/);
+                if (match && match[1]) {
+                    myTeam = match[1];
+                } else {
+                    const genericMatch = name.match(/【(.*?)】/);
+                    if (genericMatch && genericMatch[1]) myTeam = genericMatch[1];
+                }
+                updatePlayerStatusAndButton();
+            }
+        });
+
+        socket.on('registerRejected', (reason) => {
+            alert('加入失败：' + reason);
+        });
+
+        socket.on('updateUserList', (list) => {
+            const countEl = document.getElementById('userCount');
+            if(countEl) countEl.innerText = list.length;
+            const container = document.getElementById('userList');
+            if(container) container.innerHTML = list.map(user => `<div class="user-badge">⚡ ${user}</div>`).join('');
+        });
+
+        function startQuiz() { socket.emit('startQuiz'); }
+        function luckyDraw() { socket.emit('luckyDraw'); }
+
+        socket.on('quizStarted', () => {
+            document.getElementById('burstOverlay').classList.add('hidden');
+            window.quizStarted = true;
+            window.hasWinner = false;
+            window.isLocking = false;
+            window.countdownRunning = true;
+            
+            updatePlayerStatusAndButton();
+
+            runCountdown(3, () => {
+                window.countdownRunning = false;
+                document.getElementById('resultView').innerHTML = " GO！⚡️向大力神杯冲刺！";
+                updatePlayerStatusAndButton();
+            });
+        });
+
+        function runCountdown(seconds, callback) {
+            const overlay = document.getElementById('countdownOverlay');
+            const numEl = document.getElementById('countdownNumber');
+            const adminBtn = document.getElementById('adminStartBtn');
+            if(adminBtn) adminBtn.disabled = true; 
+            overlay.classList.remove('hidden'); 
+            let current = seconds;
+            numEl.innerText = current;
+            clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                current--;
+                if (current > 0) {
+                    numEl.innerText = current;
+                } else if (current === 0) {
+                    numEl.innerText = "GO!";
+                } else {
+                    clearInterval(countdownTimer);
+                    overlay.classList.add('hidden'); 
+                    if(adminBtn) adminBtn.disabled = false; 
+                    callback(); 
+                }
+            }, 1000);
+        }
+
+        socket.on('quizEnd', (winnerName) => {
+            clearInterval(countdownTimer); 
+            window.quizStarted = false;
+            window.hasWinner = true;
+            window.isLocking = true;
+            window.countdownRunning = false;
+
+            document.getElementById('countdownOverlay').classList.add('hidden');
+            if(document.getElementById('adminStartBtn')) document.getElementById('adminStartBtn').disabled = false;
+            document.getElementById('resultView').innerText = `🏆 本题得主：${winnerName} 成功捧杯！`;
+            const burstBox = document.getElementById('burstOverlay');
+            burstBox.innerHTML = `
+                <div class="smoke-cloud"></div>
+                <div class="burst-winner">🏆 绝杀：${winnerName} 夺得头筹！</div>
+            `;
+            burstBox.classList.remove('hidden');
+            setTimeout(() => { burstBox.classList.add('hidden'); }, 4500); 
+            
+            updatePlayerStatusAndButton("已有人捷足先登，蓄力下一题...");
+        });
+
+        socket.on('drawResult', (luckyName) => {
+            document.getElementById('resultView').innerHTML = `🎯 命运钦点：${luckyName} 请上前回答！`;
+            const burstBox = document.getElementById('burstOverlay');
+            burstBox.innerHTML = `
+                <div class="smoke-cloud"></div>
+                <div class="lucky-star">🎯 钦点回答：${luckyName}</div>
+            `;
+            burstBox.classList.remove('hidden');
+            setTimeout(() => { burstBox.classList.add('hidden'); }, 3000);
+        });
+
+        socket.on('invalidPress', () => {
+            updatePlayerStatusAndButton("抢跑无效！请等候发令！");
+        });
+
+        socket.on('activeTeamsUpdated', (teams) => {
+            window.activeTeams = teams;
+            if (currentRole === 'admin') {
+                const checkboxes = document.querySelectorAll('input[name="activeTeamCheckbox"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = teams.includes(cb.value);
+                });
+            }
+            renderWaitingZone();
+            updatePlayerStatusAndButton();
+        });
+
+        socket.on('teamCountsUpdated', (counts) => {
+            window.teamCounts = counts;
+            renderWaitingZone();
+            
+            const screenCountsContainer = document.getElementById('screenTeamCounts');
+            if (screenCountsContainer) {
+                screenCountsContainer.innerHTML = TEAMS.map(team => {
+                    const count = counts[team] || 0;
+                    return `<span style="background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 8px; font-size: 0.95rem; border: 1px solid rgba(255,255,255,0.1);">${team} (${count}人)</span>`;
+                }).join(' ');
+            }
+        });
+
+        function updatePlayerStatusAndButton(forceMessage) {
+            if (currentRole !== 'player') return;
+            const btn = document.getElementById('rushButton');
+            const status = document.getElementById('statusText');
+            if (!btn || !status) return;
+
+            if (!myTeam) return;
+
+            const isTeamActive = window.activeTeams && window.activeTeams.includes(myTeam);
+
+            if (!isTeamActive) {
+                btn.disabled = true;
+                btn.innerText = "READY";
+                btn.classList.remove('active');
+                status.className = "status-lock";
+                status.innerText = window.activeTeams && window.activeTeams.length > 0 
+                    ? "🔒 当前大区未开放抢答，请等待主持人开启" 
+                    : "🔒 暂无生效大区，请等待主持人设置";
+                return;
+            }
+
+            if (window.quizStarted && !window.hasWinner && !window.isLocking) {
+                if (window.countdownRunning) {
+                    btn.disabled = true;
+                    btn.innerText = "READY";
+                    btn.classList.remove('active');
+                    status.className = "status-lock";
+                    status.innerText = "🔒 抢答预备中，请听口令...";
+                } else {
+                    btn.disabled = false;
+                    btn.innerText = "RUSH!";
+                    btn.classList.add('active');
+                    status.className = "status-go";
+                    status.innerText = "🔥 战道已开！速拍金键！！";
+                }
+            } else {
+                btn.disabled = true;
+                btn.innerText = "READY";
+                btn.classList.remove('active');
+                status.className = "status-lock";
+                status.innerText = forceMessage || "🔒 请听主持人宣读题目...";
+            }
+        }
+    </script>
+</body>
+</html>
