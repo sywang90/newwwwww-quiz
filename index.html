@@ -133,7 +133,7 @@
 
         <div id="screenView" class="dashboard hidden" style="width:100%;">
             <div class="panel" style="width: 100%; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 15px 25px;">
-                <h3 style="color: var(--gold-color); margin: 0; font-size: 1.2rem;">📍 各大区等候区统计</h3>
+                <h3 style="color: var(--gold-color); margin: 0; font-size: 1.2rem;">📍 各大区等候区</h3>
                 <div id="screenTeamCounts" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 100%;"></div>
             </div>
             <div class="panel" style="text-align: center; flex: 1.2; min-width: 300px;">
@@ -229,7 +229,6 @@
             }
 
             container.innerHTML = TEAMS.map(team => {
-                const count = (window.teamCounts && window.teamCounts[team]) || 0;
                 const isActive = window.activeTeams && window.activeTeams.includes(team);
                 
                 let cardStyle = `
@@ -268,7 +267,6 @@
                 return `
                     <div ${onClickAttr} style="${cardStyle}" onmouseover="if(${isActive}){this.style.transform='translateY(-3px)'; this.style.boxShadow='0 5px 15px rgba(0,240,255,0.3)';}" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
                         <strong style="font-size: 1.3rem; color: #fff;">${team}</strong>
-                        <span style="font-size: 1.1rem; color: #ccc; margin-top: 5px;">(${count} 人)</span>
                         ${statusLabel}
                     </div>
                 `;
@@ -281,6 +279,11 @@
 
         function pressButton() { 
             socket.emit('pressButton'); 
+        }
+
+        function formatResultName(name) {
+            const match = String(name || "").match(/^(【[^】]+】)\d+号$/);
+            return match ? match[1] : name;
         }
 
         socket.on('registered', (name) => {
@@ -355,6 +358,7 @@
         }
 
         socket.on('quizEnd', (winnerName) => {
+            const displayWinnerName = formatResultName(winnerName);
             clearInterval(countdownTimer); 
             window.quizStarted = false;
             window.hasWinner = true;
@@ -363,11 +367,11 @@
 
             document.getElementById('countdownOverlay').classList.add('hidden');
             if(document.getElementById('adminStartBtn')) document.getElementById('adminStartBtn').disabled = false;
-            document.getElementById('resultView').innerText = `🏆 本题得主：${winnerName} 成功捧杯！`;
+            document.getElementById('resultView').innerText = `🏆 本题得主：${displayWinnerName} 成功捧杯！`;
             const burstBox = document.getElementById('burstOverlay');
             burstBox.innerHTML = `
                 <div class="smoke-cloud"></div>
-                <div class="burst-winner">🏆 绝杀：${winnerName} 夺得头筹！</div>
+                <div class="burst-winner">🏆 绝杀：${displayWinnerName} 夺得头筹！</div>
             `;
             burstBox.classList.remove('hidden');
             setTimeout(() => { burstBox.classList.add('hidden'); }, 4500); 
@@ -376,11 +380,12 @@
         });
 
         socket.on('drawResult', (luckyName) => {
-            document.getElementById('resultView').innerHTML = `🎯 命运钦点：${luckyName} 请上前回答！`;
+            const displayLuckyName = formatResultName(luckyName);
+            document.getElementById('resultView').innerHTML = `🎯 命运钦点：${displayLuckyName} 请上前回答！`;
             const burstBox = document.getElementById('burstOverlay');
             burstBox.innerHTML = `
                 <div class="smoke-cloud"></div>
-                <div class="lucky-star">🎯 钦点回答：${luckyName}</div>
+                <div class="lucky-star">🎯 钦点回答：${displayLuckyName}</div>
             `;
             burstBox.classList.remove('hidden');
             setTimeout(() => { burstBox.classList.add('hidden'); }, 3000);
@@ -409,8 +414,7 @@
             const screenCountsContainer = document.getElementById('screenTeamCounts');
             if (screenCountsContainer) {
                 screenCountsContainer.innerHTML = TEAMS.map(team => {
-                    const count = counts[team] || 0;
-                    return `<span style="background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 8px; font-size: 0.95rem; border: 1px solid rgba(255,255,255,0.1);">${team} (${count}人)</span>`;
+                    return `<span style="background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 8px; font-size: 0.95rem; border: 1px solid rgba(255,255,255,0.1);">${team}</span>`;
                 }).join(' ');
             }
         });
